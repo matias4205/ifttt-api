@@ -8,7 +8,7 @@ http.createServer(function (req, res) {
 
     if (queryObject['password']) {
         const password = queryObject['password'];
-        if (password !== 'pepote333') {
+        if (password !== process.env.PASSWORD) {
             res.writeHead(403, {'Content-Type': 'text/html'});
             res.end('Get the fuck out, this API is secured!');
         }
