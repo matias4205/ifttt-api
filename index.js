@@ -1,46 +1,57 @@
-var http = require('http');
-var child = require('child_process');
+const http = require('http');
+const child = require('child_process');
 const url = require('url');
+const fs = require('fs');
 
-//create a server object:
+const defaultArgs = (containerName) => `--name ${containerName} --rm`;
+
+const dirContent = fs.readdirSync('./', {
+    encoding: "utf-8",
+});
+
+const dirHasConfig = dirContent.includes('containers.config.json');
+let configFile = {}
+
+if (dirHasConfig) {
+    console.log('Config file found!');
+    configFile = require(`./containers.config.json`);
+}
+
+if (!process.env.PASSWORD) {
+    throw new Error('You have to set an API password!');
+}
+
 http.createServer(function (req, res) {
     const queryObject = url.parse(req.url,true).query;
 
-    if (queryObject['password']) {
-        const password = queryObject['password'];
-        if (password !== process.env.PASSWORD) {
-            res.writeHead(403, {'Content-Type': 'text/html'});
-            res.end('Get the fuck out, this API is secured!');
-        }
-    } else {
+    if (!queryObject['password'] || queryObject['password'] !== process.env.PASSWORD) {
+        console.log(`Failed login attempt at ${new Date()}`);
         res.writeHead(403, {'Content-Type': 'text/html'});
-        res.end('Get the fuck out, this API is secured!');
+        res.end('Forbidden');
+        return;
     }
     
     if (queryObject['container'] && queryObject['action']) {
-        const cleanContainerName = queryObject['container'].replace(/a |the /gm, '');
+        const containerName = queryObject['container'].trim().toLowerCase().replace(/a |the /gm, '');
         const action = queryObject['action'];
-        console.log({ action, cleanContainerName });
 
-        switch(cleanContainerName) {
-            case 'mysql':
-            case 'mongo': {
-                if (action === 'run') {
-                    console.log(`Running a ${cleanContainerName}`);
-                    child.exec(`docker run --name ${cleanContainerName} --rm -d ${cleanContainerName}`, (err, _stdout, _stdin) => {
-                        console.log({err, _stdout, _stdin});
-                    });
-                } else if(action === 'kill') {
-                    console.log(`Killing the ${cleanContainerName} container`);
-                    child.exec(`docker kill ${cleanContainerName}`, (err, _stdout, _stdin) => {
-                        console.log({err, _stdout, _stdin});
-                    });
-                }
-                break;
-            }
+        if (configFile['whiteList'] && !configFile.whiteList.includes(containerName)){
+            console.log(`The ${containerName} container is not on the white list!`);
+            return;
+        };
+
+        if (action === 'run') {
+            console.log(`Running a ${containerName}...`);
+            child.exec(`docker run ${defaultArgs(containerName)} -d ${containerName}`, (err, _stdout, _stdin) => {
+                console.log({err, _stdout, _stdin});
+            });
+        } else if(action === 'kill') {
+            console.log(`Killing the ${containerName} container...`);
+            child.exec(`docker kill ${containerName}`, (err, _stdout, _stdin) => {
+                console.log({err, _stdout, _stdin});
+            });
         }
     }
 
-
     res.writeHead(200, {'Content-Type': 'text/html'});
-}).listen(3000); //the server object listens on port 8080 
+}).listen(3000);
