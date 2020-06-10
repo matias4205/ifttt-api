@@ -39,7 +39,6 @@ http.createServer(function (req, res) {
 
     if (queryObject['container'] && queryObject['action']) {
         const containerName = sanetizeString(queryObject['container']);
-        console.log({ input: queryObject['container'], output: containerName });
         const action = queryObject['action'];
 
         if (configFile['whitelist'] && !configFile.whitelist.includes(containerName)){
