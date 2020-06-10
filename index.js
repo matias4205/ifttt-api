@@ -3,6 +3,8 @@ const child = require('child_process');
 const url = require('url');
 const fs = require('fs');
 
+const sanetizeString = (str) => str.trim().replace(/a |the /gm, '').split(" ")[0].toLowerCase();
+
 const defaultArgs = (containerName) => `--name ${containerName} --rm`;
 
 const dirContent = fs.readdirSync('./', {
@@ -14,7 +16,11 @@ let configFile = {}
 
 if (dirHasConfig) {
     console.log('Config file found!');
-    configFile = require(`./containers.config.json`);
+    try {
+        configFile = require(`./containers.config.json`);
+    } catch (err) {
+        console.log('Error requiring config! Skipping...');
+    }
 }
 
 if (!process.env.PASSWORD) {
@@ -30,28 +36,36 @@ http.createServer(function (req, res) {
         res.end('Forbidden');
         return;
     }
-    
+
     if (queryObject['container'] && queryObject['action']) {
-        const containerName = queryObject['container'].trim().toLowerCase().replace(/a |the /gm, '');
+        const containerName = sanetizeString(queryObject['container']);
+        console.log({ input: queryObject['container'], output: containerName });
         const action = queryObject['action'];
 
-        if (configFile['whiteList'] && !configFile.whiteList.includes(containerName)){
+        if (configFile['whitelist'] && !configFile.whitelist.includes(containerName)){
             console.log(`The ${containerName} container is not on the white list!`);
+            res.writeHead(200, {'Content-Type': 'text/html'});
+            res.end();
             return;
         };
 
         if (action === 'run') {
-            console.log(`Running a ${containerName}...`);
-            child.exec(`docker run ${defaultArgs(containerName)} -d ${containerName}`, (err, _stdout, _stdin) => {
-                console.log({err, _stdout, _stdin});
+            console.log(`Running a ${containerName} container...`);
+            child.exec(`docker run ${defaultArgs(containerName)} -d ${containerName}`, (err) => {
+                if(err){
+                    console.error(`Error: ${err.message}`);
+                }
             });
         } else if(action === 'kill') {
             console.log(`Killing the ${containerName} container...`);
-            child.exec(`docker kill ${containerName}`, (err, _stdout, _stdin) => {
-                console.log({err, _stdout, _stdin});
+            child.exec(`docker kill ${containerName}`, (err) => {
+                if(err){
+                    console.error(`Error: ${err.message}`);
+                }
             });
         }
     }
 
     res.writeHead(200, {'Content-Type': 'text/html'});
+    res.end();
 }).listen(3000);
