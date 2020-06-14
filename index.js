@@ -3,6 +3,8 @@ const child = require('child_process');
 const url = require('url');
 const fs = require('fs');
 
+const PORT = 8000;
+
 const sanetizeString = (str) => str.trim().replace(/a |the /gm, '').split(" ")[0].toLowerCase();
 
 const defaultArgs = (containerName) => `--name ${containerName} --rm`;
@@ -67,4 +69,4 @@ http.createServer(function (req, res) {
 
     res.writeHead(200, {'Content-Type': 'text/html'});
     res.end();
-}).listen(3000);
+}).listen(PORT);
